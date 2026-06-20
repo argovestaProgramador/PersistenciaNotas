@@ -97,42 +97,36 @@ CREATE TABLE Notas(
     CONSTRAINT ckActivoNota CHECK (activo IN (TRUE, FALSE))
 );
 
--- 1. Roles de Usuario
 INSERT INTO RolesUsuario (nombre, descripcion, activo, fechaCreacionRegistro) VALUES
 ('Comun', 'Usuario con permisos estándar', TRUE, CURRENT_DATE),
 ('Administrador', 'Usuario con control total del sistema', TRUE, CURRENT_DATE);
 
--- 2. Usuarios
 INSERT INTO Usuarios (idRolUsuario, nombre, contraseñaHash, apellidoPaterno, apellidoMaterno, correoElectronico, fechaNacimiento, activo, fechaCreacionRegistro) VALUES
 (2, 'admin_user', 'hash_admin_123', 'Gomez', 'Lopez', 'admin@devnotas.com', '1990-01-01', TRUE, CURRENT_DATE),
 (1, 'juan_perez', 'hash_juan_456', 'Perez', 'Rodriguez', 'juan.perez@devnotas.com', '1995-05-15', TRUE, CURRENT_DATE),
 (1, 'maria_db', 'hash_maria_789', 'Diaz', 'Benitez', 'maria.db@devnotas.com', '1998-10-22', TRUE, CURRENT_DATE);
 
--- 3. Categorías de Tareas
 INSERT INTO CategoriasTarea (nombre, descripcion, activo, fechaCreacionRegistro) VALUES
 ('Desarrollo', 'Tareas relacionadas con desarrollo de software', TRUE, CURRENT_DATE),
 ('Reuniones', 'Planificación y alineamiento con el equipo', TRUE, CURRENT_DATE),
 ('Soporte', 'Atención a incidencias y mantenimiento', TRUE, CURRENT_DATE);
 
--- 4. Tareas
 INSERT INTO Tareas (idCategoriaTarea, idUsuario, titulo, descripcion, fechaInicio, fechaFinalizacion, activo, fechaCreacionRegistro) VALUES
 (1, 2, 'Diseñar Base de Datos', 'Crear el script de estructura inicial para Postgres', CURRENT_DATE, CURRENT_DATE + 3, TRUE, CURRENT_DATE),
 (2, 1, 'Reunión Semanal', 'Sincronización semanal del avance del proyecto', CURRENT_DATE, CURRENT_DATE + 1, TRUE, CURRENT_DATE),
 (3, 3, 'Corregir Bug de Login', 'Resolver problema con la expiración de tokens', CURRENT_DATE, CURRENT_DATE + 2, TRUE, CURRENT_DATE);
 
--- 5. Categorías de Notas
 INSERT INTO CategoriasNota (nombre, descripcion, activo, fechaCreacionRegistro) VALUES
 ('Ideas', 'Ideas para futuras funcionalidades', TRUE, CURRENT_DATE),
 ('Credenciales', 'Datos de acceso para entornos locales', TRUE, CURRENT_DATE),
 ('Recordatorios', 'Notas rápidas sobre temas pendientes', TRUE, CURRENT_DATE);
 
--- 6. Notas
 INSERT INTO Notas (idCategoriaNota, idUsuario, titulo, descripcion, activo, fechaCreacionRegistro) VALUES
 (1, 2, 'Mejora en backend', 'Implementar Redis para el almacenamiento de sesiones', TRUE, CURRENT_DATE),
 (2, 1, 'Acceso DB Local', 'Host: localhost, User: postgres, Pass: secret123', TRUE, CURRENT_DATE),
 (3, 3, 'Comprar café', 'Recordar comprar café para la oficina el lunes', TRUE, CURRENT_DATE);
 
-
+-- Procedimientos para Roles de Usuario
 
 CREATE OR REPLACE FUNCTION fn_listarRolesUsuario()
 RETURNS TABLE (
@@ -349,5 +343,394 @@ BEGIN
         fechaNacimiento = p_fechaNacimiento
     WHERE idUsuario = p_idUsuario;
     COMMIT;     
+END;
+$$;
+
+CREATE OR REPLACE PROCEDURE sp_eliminarUsuarioAdmin(
+    p_idUsuario INT
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    UPDATE Usuarios
+    SET activo = FALSE
+    WHERE idUsuario = p_idUsuario;
+    COMMIT;
+END;
+$$;
+
+-- Procedimientos Categorias Tarea
+
+CREATE OR REPLACE FUNCTION fn_listarCategoriasTarea()
+RETURNS TABLE (
+    idCategoriaTarea INT,
+    nombre VARCHAR(50),
+    descripcion VARCHAR(250)
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT cat.idCategoriaTarea AS "idCategoriaTarea",
+           cat.nombre AS "nombre",
+           cat.descripcion AS "descripcion" 
+    FROM CategoriasTarea AS cat
+    WHERE cat.activo = TRUE;
+END;
+$$;
+
+CREATE OR REPLACE PROCEDURE sp_crearCategoriaTarea(
+    p_nombre VARCHAR(50),
+    p_descripcion VARCHAR(250)
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    INSERT INTO CategoriasTarea(nombre, descripcion, activo, fechaCreacionRegistro)
+    VALUES (p_nombre, p_descripcion, TRUE, CURRENT_DATE);
+    COMMIT;
+END;
+$$;
+
+CREATE OR REPLACE PROCEDURE sp_actualizarCategoriaTarea(
+    p_nombre VARCHAR(50),
+    p_descripcion VARCHAR(250),
+    p_idCategoriaTarea INT
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    UPDATE CategoriasTarea
+    SET nombre = p_nombre,
+        descripcion = p_descripcion
+    WHERE idCategoriaTarea = p_idCategoriaTarea;
+    COMMIT;    
+END;
+$$;
+
+CREATE OR REPLACE PROCEDURE sp_eliminarCategoriaTarea(
+    p_idCategoriaTarea INT
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    UPDATE categoriastarea
+    SET activo = FALSE
+    WHERE idCategoriaTarea = p_idCategoriaTarea;
+    COMMIT;
+END;
+$$;
+
+-- Procedimientos Tareas
+
+CREATE OR REPLACE FUNCTION fn_listarTareas()
+RETURNS TABLE (
+    idTarea INT,
+    categoria VARCHAR(50),
+    titulo VARCHAR(100),
+    descripcion VARCHAR(500),
+    fechaInicio DATE,
+    fechaFinalizacion DATE
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT ta.idTarea AS "idTarea",
+           cat.nombre AS "categoria",
+           ta.titulo AS "titulo",
+           ta.descripcion AS "descripcion",
+           ta.fechaInicio AS "fechaInicio",
+           ta.fechaFinalizacion AS "fechaFinalizacion"
+    FROM Tareas AS ta
+    INNER JOIN CategoriasTarea AS cat ON cat.idCategoriaTarea = ta.idCategoriaTarea
+    WHERE ta.activo = TRUE;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION fn_listarTareasUsuario(
+    p_idUsuario INT
+)
+RETURNS TABLE (
+    idTarea INT,
+    categoria VARCHAR(50),
+    titulo VARCHAR(100),
+    descripcion VARCHAR(500),
+    fechaInicio DATE,
+    fechaFinalizacion DATE
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT ta.idTarea AS "idTarea",
+           cat.nombre AS "categoria",
+           ta.titulo AS "titulo",
+           ta.descripcion AS "descripcion",
+           ta.fechaInicio AS "fechaInicio",
+           ta.fechaFinalizacion AS "fechaFinalizacion"
+    FROM Tareas AS ta
+    INNER JOIN CategoriasTarea AS cat ON cat.idCategoriaTarea = ta.idCategoriaTarea
+    WHERE ta.activo = TRUE AND ta.idUsuario = p_idUsuario;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION fn_buscarTareaPorId(
+    p_idTarea INT
+)
+RETURNS TABLE (
+    idTarea INT,
+    categoria VARCHAR(50),
+    titulo VARCHAR(100),
+    descripcion VARCHAR(500),
+    fechaInicio DATE,
+    fechaFinalizacion DATE
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT ta.idTarea AS "idTarea",
+           cat.nombre AS "categoria",
+           ta.titulo AS "titulo",
+           ta.descripcion AS "descripcion",
+           ta.fechaInicio AS "fechaInicio",
+           ta.fechaFinalizacion AS "fechaFinalizacion"
+    FROM Tareas AS ta
+    INNER JOIN CategoriasTarea AS cat ON cat.idCategoriaTarea = ta.idCategoriaTarea
+    WHERE ta.activo = TRUE AND ta.idTarea = p_idTarea;
+END;
+$$;
+
+CREATE OR REPLACE PROCEDURE sp_crearTarea(
+    p_idCategoriaTarea INT,
+    p_idUsuario INT,
+    p_titulo VARCHAR(100),
+    p_descripcion VARCHAR(500),
+    p_fechaInicio DATE,
+    p_fechaFinalizacion DATE
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    INSERT INTO Tareas(idCategoriaTarea, idUsuario, titulo, descripcion, fechaInicio, fechaFinalizacion, activo, fechaCreacionRegistros)
+    VALUES (p_idCategoriaTarea, p_idUsuario, p_titulo, p_descripcion, p_fechaInicio, p_fechaFinalizacion, TRUE, CURRENT_DATE);
+    COMMIT;
+END;
+$$;
+
+CREATE OR REPLACE PROCEDURE sp_actualizarTarea(
+    p_idCategoriaTarea INT,
+    p_idUsuario INT,
+    p_titulo VARCHAR(100),
+    p_descripcion VARCHAR(500),
+    p_fechaInicio DATE,
+    p_fechaFinalizacion DATE,
+    p_idTarea INT
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    UPDATE Tareas
+    SET idCategoriaTarea = p_idCategoriaTarea,
+        idUsuario = p_idUsuario,
+        titulo = p_titulo,
+        descripcion = p_descripcion,
+        fechaInicio = p_fechaInicio,
+        fechaFinalizacion = p_fechaFinalizacion
+    WHERE idTarea = p_idTarea;
+    COMMIT;        
+END;
+$$;
+
+CREATE OR REPLACE PROCEDURE sp_eliminarTarea(
+    p_idTarea INT
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    UPDATE Tareas 
+    SET activo = FALSE
+    WHERE idTarea = p_idTarea;
+    COMMIT;
+END;
+$$;
+
+-- Procedimientos de Categorias Notas
+
+CREATE OR REPLACE FUNCTION fn_listarcategoriastarea()
+RETURNS TABLE (
+    idCategoriaTarea INT,
+    nombre VARCHAR(50),
+    descripcion VARCHAR(250)
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT cate.idCategoriaTarea AS "idCategoriaTarea",
+           cate.nombre AS "nombre",
+           cate.descripcion AS "descripcion"
+    FROM CategoriasTarea AS cate
+    WHERE activo = TRUE;
+END;
+$$;
+
+CREATE OR REPLACE PROCEDURE sp_crearCategoriaTarea(
+    p_nombre VARCHAR(50),
+    p_descripcion VARCHAR(250)
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    INSERT INTO CategoriasTarea(nombre, descripcion, activo, fechaCreacionRegistro)
+    VALUES (p_nombre, p_descripcion, TRUE, CURRENT_DATE);
+    COMMIT;
+END;
+$$;
+
+CREATE OR REPLACE PROCEDURE sp_actualizarCategoriaTarea(
+    p_nombre VARCHAR(50),
+    p_descripcion VARCHAR(250),
+    p_idCategoriaTarea INT
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    UPDATE categoriastarea
+    SET nombre = p_nombre,
+        descripcion = p_descripcion
+    WHERE idCategoriaTarea = p_idCategoriaTarea;
+    COMMIT;
+END;
+$$;
+
+CREATE OR REPLACE PROCEDURE sp_eliminarCategoriaTarea(
+    p_idCategoriaTarea INT
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    UPDATE categoriastarea
+    SET activo = FALSE
+    WHERE idCategoriaTarea = p_idCategoriaTarea;
+    COMMIT;
+END;
+$$;
+
+-- Procedimientos de Notas
+
+CREATE OR REPLACE FUNCTION fn_listarNotas()
+RETURNS TABLE (
+    idNota INT,
+    categoria VARCHAR(50),
+    titulo VARCHAR(100),
+    descripcion VARCHAR(500)
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT nop.idNota AS "idNota",
+           cat.nombre AS "categoria",
+           nop.titulo AS "titulo",
+           nop.descripcion AS "descripcion"
+    FROM Notas AS nop
+    INNER JOIN CategoriasNota AS cat ON cat.idCategoriaNota = nop.idCategoriaNota
+    WHERE nop.activo = TRUE;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION fn_listarNotasUsuario(
+    p_idUsuario INT
+)
+RETURNS TABLE (
+    idNota INT,
+    categoria VARCHAR(50),
+    titulo VARCHAR(100),
+    descripcion VARCHAR(500)
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT nop.idNota AS "idNota",
+           cat.nombre AS "categoria",
+           nop.titulo AS "titulo",
+           nop.descripcion AS "descripcion"
+    FROM Notas AS nop
+    INNER JOIN CategoriasNota AS cat ON cat.idCategoriaNota = nop.idCategoriaNota
+    WHERE nop.activo = TRUE AND nop.idUsuario = p_idUsuario;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION fn_buscarNotaPorId(
+    p_idNota INT
+)
+RETURNS TABLE (
+    idNota INT,
+    categoria VARCHAR(50),
+    titulo VARCHAR(100),
+    descripcion VARCHAR(500)
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT nop.idNota AS "idNota",
+           cat.nombre AS "categoria",
+           nop.titulo AS "titulo",
+           nop.descripcion AS "descripcion"
+    FROM Notas AS nop
+    INNER JOIN CategoriasNota AS cat ON cat.idCategoriaNota = nop.idCategoriaNota
+    WHERE nop.activo = TRUE AND nop.idNota = p_idNota;
+END;
+$$;
+
+CREATE OR REPLACE PROCEDURE sp_crearNota(
+    p_idCategoriaNota INT,
+    p_idUsuario INT,
+    p_titulo VARCHAR(100),
+    p_descripcion VARCHAR(500)
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    INSERT INTO Notas(idCategoriaNota, idUsuario, titulo, descripcion, activo, fechaCreacionRegistro)
+    VALUES (p_idCategoriaNota, p_idUsuario, p_titulo, p_descripcion, TRUE, CURRENT_DATE);
+    COMMIT;
+END;
+$$;
+
+CREATE OR REPLACE PROCEDURE sp_actualizarNota(
+    p_idCategoriaNota INT,
+    p_idUsuario INT,
+    p_titulo VARCHAR(100),
+    p_descripcion VARCHAR(500),
+    p_idNota INT
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    UPDATE Notas
+    SET idCategoriaNota = p_idCategoriaNota,
+        idUsuario = p_idUsuario,
+        titulo = p_titulo,
+        descripcion = p_descripcion
+    WHERE idNota = p_idNota;
+    COMMIT;    
+END;
+$$;
+
+CREATE OR REPLACE PROCEDURE sp_eliminarNota(
+    p_idNota INT
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    UPDATE Notas
+    SET activo = FALSE
+    WHERE idNota = p_idNota;
+    COMMIT;
 END;
 $$;
