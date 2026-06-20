@@ -97,7 +97,42 @@ CREATE TABLE Notas(
     CONSTRAINT ckActivoNota CHECK (activo IN (TRUE, FALSE))
 );
 
--- Procedimientos para RolesUsuario
+-- 1. Roles de Usuario
+INSERT INTO RolesUsuario (nombre, descripcion, activo, fechaCreacionRegistro) VALUES
+('Comun', 'Usuario con permisos estándar', TRUE, CURRENT_DATE),
+('Administrador', 'Usuario con control total del sistema', TRUE, CURRENT_DATE);
+
+-- 2. Usuarios
+INSERT INTO Usuarios (idRolUsuario, nombre, contraseñaHash, apellidoPaterno, apellidoMaterno, correoElectronico, fechaNacimiento, activo, fechaCreacionRegistro) VALUES
+(2, 'admin_user', 'hash_admin_123', 'Gomez', 'Lopez', 'admin@devnotas.com', '1990-01-01', TRUE, CURRENT_DATE),
+(1, 'juan_perez', 'hash_juan_456', 'Perez', 'Rodriguez', 'juan.perez@devnotas.com', '1995-05-15', TRUE, CURRENT_DATE),
+(1, 'maria_db', 'hash_maria_789', 'Diaz', 'Benitez', 'maria.db@devnotas.com', '1998-10-22', TRUE, CURRENT_DATE);
+
+-- 3. Categorías de Tareas
+INSERT INTO CategoriasTarea (nombre, descripcion, activo, fechaCreacionRegistro) VALUES
+('Desarrollo', 'Tareas relacionadas con desarrollo de software', TRUE, CURRENT_DATE),
+('Reuniones', 'Planificación y alineamiento con el equipo', TRUE, CURRENT_DATE),
+('Soporte', 'Atención a incidencias y mantenimiento', TRUE, CURRENT_DATE);
+
+-- 4. Tareas
+INSERT INTO Tareas (idCategoriaTarea, idUsuario, titulo, descripcion, fechaInicio, fechaFinalizacion, activo, fechaCreacionRegistro) VALUES
+(1, 2, 'Diseñar Base de Datos', 'Crear el script de estructura inicial para Postgres', CURRENT_DATE, CURRENT_DATE + 3, TRUE, CURRENT_DATE),
+(2, 1, 'Reunión Semanal', 'Sincronización semanal del avance del proyecto', CURRENT_DATE, CURRENT_DATE + 1, TRUE, CURRENT_DATE),
+(3, 3, 'Corregir Bug de Login', 'Resolver problema con la expiración de tokens', CURRENT_DATE, CURRENT_DATE + 2, TRUE, CURRENT_DATE);
+
+-- 5. Categorías de Notas
+INSERT INTO CategoriasNota (nombre, descripcion, activo, fechaCreacionRegistro) VALUES
+('Ideas', 'Ideas para futuras funcionalidades', TRUE, CURRENT_DATE),
+('Credenciales', 'Datos de acceso para entornos locales', TRUE, CURRENT_DATE),
+('Recordatorios', 'Notas rápidas sobre temas pendientes', TRUE, CURRENT_DATE);
+
+-- 6. Notas
+INSERT INTO Notas (idCategoriaNota, idUsuario, titulo, descripcion, activo, fechaCreacionRegistro) VALUES
+(1, 2, 'Mejora en backend', 'Implementar Redis para el almacenamiento de sesiones', TRUE, CURRENT_DATE),
+(2, 1, 'Acceso DB Local', 'Host: localhost, User: postgres, Pass: secret123', TRUE, CURRENT_DATE),
+(3, 3, 'Comprar café', 'Recordar comprar café para la oficina el lunes', TRUE, CURRENT_DATE);
+
+
 
 CREATE OR REPLACE FUNCTION fn_listarRolesUsuario()
 RETURNS TABLE (
@@ -160,6 +195,28 @@ $$;
 
 -- Procedimientos para Usuario
 
+CREATE OR REPLACE FUNCTION fn_login(
+    p_correoElectronico VARCHAR(200),
+    p_contraseñaHash TEXT
+)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF EXISTS (
+               SELECT 1 FROM Usuarios AS usu
+               WHERE usu.correoElectronico = p_correoElectronico 
+               AND usu.contraseñaHash = p_contraseñaHash 
+               AND usu.activo = TRUE 
+              ) 
+    THEN          
+        RETURN TRUE;
+    ELSE 
+        RETURN FALSE;
+    END IF;
+END;
+$$;
+
 CREATE OR REPLACE FUNCTION fn_listarUsuarios()
 RETURNS TABLE (
     idUsuario INT,
@@ -180,7 +237,117 @@ BEGIN
            usu.correoElectronico AS "correoElectronico",
            usu.fechaNacimiento AS "fechaNacimiento"
     FROM Usuarios AS usu
-    WHERE activo = TRUE;
+    WHERE usu.activo = TRUE;
 END;
 $$;
 
+CREATE OR REPLACE FUNCTION fn_buscarUsuariosPorId(
+    p_idUsuario INT
+)
+RETURNS TABLE (
+    idUsuario INT,
+    nombre VARCHAR(50),
+    apellidoPaterno VARCHAR(70),
+    apellidoMaterno VARCHAR(70),
+    correoElectronico VARCHAR(200),
+    fechaNacimiento DATE
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+     RETURN QUERY
+    SELECT usu.idUsuario AS "idUsuario",
+           usu.nombre AS "nombre",
+           usu.apellidoPaterno AS "apellidoPaterno",
+           usu.apellidoMaterno AS "apellidoMaterno",
+           usu.correoElectronico AS "correoElectronico",
+           usu.fechaNacimiento AS "fechaNacimiento"
+    FROM Usuarios AS usu
+    WHERE usu.activo = TRUE AND usu.idUsuario = p_idUsuario; 
+END;
+$$;
+
+CREATE OR REPLACE PROCEDURE sp_crearUsuarioComun(
+    p_nombre VARCHAR(50),
+    p_contraseñaHash TEXT,
+    p_apellidoPaterno VARCHAR(70),
+    p_apellidoMaterno VARCHAR(70),
+    p_correoElectronico VARCHAR(200),
+    p_fechaNacimiento DATE
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    INSERT INTO Usuarios(idRolUsuario, nombre, contraseñaHash, apellidoPaterno, apellidoMaterno, correoElectronico, fechaNacimiento, activo, fechaCreacionRegistro)
+    VALUES ((SELECT rol.idRolUsuario FROM RolesUsuario AS rol WHERE rol.nombre = 'Comun'), p_nombre, p_contraseñaHash, p_apellidoPaterno, p_apellidoMaterno, p_correoElectronico, p_fechaNacimiento, TRUE, CURRENT_DATE);
+    COMMIT;
+END;
+$$;
+
+CREATE OR REPLACE PROCEDURE sp_crearUsuarioAdmin(
+    p_idRolUsuario INT,
+    p_nombre VARCHAR(50),
+    p_contraseñaHash TEXT,
+    p_apellidoPaterno VARCHAR(70),
+    p_apellidoMaterno VARCHAR(70),
+    p_correoElectronico VARCHAR(200),
+    p_fechaNacimiento DATE
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    INSERT INTO Usuarios(idRolUsuario, nombre, contraseñaHash, apellidoPaterno, apellidoMaterno, correoElectronico, fechaNacimiento, activo, fechaCreacionRegistro)
+    VALUES (p_idRolUsuario, p_nombre, p_contraseñaHash, p_apellidoPaterno, p_apellidoMaterno, p_correoElectronico, p_fechaNacimiento, TRUE, CURRENT_DATE);
+    COMMIT;
+END;
+$$;
+
+CREATE OR REPLACE PROCEDURE sp_actualizarUsuarioComun(
+    p_nombre VARCHAR(50),
+    p_contraseñaHash TEXT,
+    p_apellidoPaterno VARCHAR(70),
+    p_apellidoMaterno VARCHAR(70),
+    p_correoElectronico VARCHAR(200),
+    p_fechaNacimiento DATE,
+    p_idUsuario INT
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    UPDATE Usuarios
+    SET nombre = p_nombre,
+        contraseñaHash = p_contraseñaHash,
+        apellidoPaterno = p_apellidoPaterno,
+        apellidoMaterno = p_apellidoMaterno,
+        correoElectronico = p_correoElectronico,
+        fechaNacimiento = p_fechaNacimiento
+    WHERE idUsuario = p_idUsuario;
+    COMMIT;     
+END;
+$$;
+
+CREATE OR REPLACE PROCEDURE sp_actualizarUsuarioAdmin(
+    p_idRolUsuario INT,
+    p_nombre VARCHAR(50),
+    p_contraseñaHash TEXT,
+    p_apellidoPaterno VARCHAR(70),
+    p_apellidoMaterno VARCHAR(70),
+    p_correoElectronico VARCHAR(200),
+    p_fechaNacimiento DATE,
+    p_idUsuario INT
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    UPDATE Usuarios
+    SET idRolUsuario = p_idRolUsuario,
+        nombre = p_nombre,
+        contraseñaHash = p_contraseñaHash,
+        apellidoPaterno = p_apellidoPaterno,
+        apellidoMaterno = p_apellidoMaterno,
+        correoElectronico = p_correoElectronico,
+        fechaNacimiento = p_fechaNacimiento
+    WHERE idUsuario = p_idUsuario;
+    COMMIT;     
+END;
+$$;
