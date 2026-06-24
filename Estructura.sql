@@ -155,7 +155,6 @@ AS $$
 BEGIN
     INSERT INTO RolesUsuario(nombre, descripcion, activo, fechaCreacionRegistro)
     VALUES (p_nombre, p_descripcion, TRUE, CURRENT_DATE);
-    COMMIT;
 END;
 $$;
 
@@ -170,7 +169,6 @@ BEGIN
     UPDATE RolesUsuario
     SET nombre = p_nombre, descripcion = p_descripcion
     WHERE idRolUsuario = p_idRolUsuario;
-    COMMIT;
 END;
 $$;
 
@@ -183,7 +181,6 @@ BEGIN
     UPDATE RolesUsuario
     SET activo = FALSE
     WHERE idRolUsuario = p_idRolUsuario;
-    COMMIT;
 END;
 $$;
 
@@ -209,6 +206,19 @@ BEGIN
         RETURN FALSE;
     END IF;
 END;
+$$;
+
+CREATE OR REPLACE PROCEDURE sp_actualizarContraseñaUsuario(
+    p_contraseñaHash TEXT,
+    p_idUsuario INT
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    UPDATE Usuarios
+    SET contraseñaHash = p_contraseñaHash
+    WHERE idUsuario = p_idUsuario;
+END; 
 $$;
 
 CREATE OR REPLACE FUNCTION fn_listarUsuarios()
@@ -274,7 +284,6 @@ AS $$
 BEGIN
     INSERT INTO Usuarios(idRolUsuario, nombre, contraseñaHash, apellidoPaterno, apellidoMaterno, correoElectronico, fechaNacimiento, activo, fechaCreacionRegistro)
     VALUES ((SELECT rol.idRolUsuario FROM RolesUsuario AS rol WHERE rol.nombre = 'Comun'), p_nombre, p_contraseñaHash, p_apellidoPaterno, p_apellidoMaterno, p_correoElectronico, p_fechaNacimiento, TRUE, CURRENT_DATE);
-    COMMIT;
 END;
 $$;
 
@@ -292,13 +301,11 @@ AS $$
 BEGIN
     INSERT INTO Usuarios(idRolUsuario, nombre, contraseñaHash, apellidoPaterno, apellidoMaterno, correoElectronico, fechaNacimiento, activo, fechaCreacionRegistro)
     VALUES (p_idRolUsuario, p_nombre, p_contraseñaHash, p_apellidoPaterno, p_apellidoMaterno, p_correoElectronico, p_fechaNacimiento, TRUE, CURRENT_DATE);
-    COMMIT;
 END;
 $$;
 
 CREATE OR REPLACE PROCEDURE sp_actualizarUsuarioComun(
     p_nombre VARCHAR(50),
-    p_contraseñaHash TEXT,
     p_apellidoPaterno VARCHAR(70),
     p_apellidoMaterno VARCHAR(70),
     p_correoElectronico VARCHAR(200),
@@ -310,20 +317,17 @@ AS $$
 BEGIN
     UPDATE Usuarios
     SET nombre = p_nombre,
-        contraseñaHash = p_contraseñaHash,
         apellidoPaterno = p_apellidoPaterno,
         apellidoMaterno = p_apellidoMaterno,
         correoElectronico = p_correoElectronico,
         fechaNacimiento = p_fechaNacimiento
-    WHERE idUsuario = p_idUsuario;
-    COMMIT;     
+    WHERE idUsuario = p_idUsuario;   
 END;
 $$;
 
 CREATE OR REPLACE PROCEDURE sp_actualizarUsuarioAdmin(
     p_idRolUsuario INT,
     p_nombre VARCHAR(50),
-    p_contraseñaHash TEXT,
     p_apellidoPaterno VARCHAR(70),
     p_apellidoMaterno VARCHAR(70),
     p_correoElectronico VARCHAR(200),
@@ -336,17 +340,15 @@ BEGIN
     UPDATE Usuarios
     SET idRolUsuario = p_idRolUsuario,
         nombre = p_nombre,
-        contraseñaHash = p_contraseñaHash,
         apellidoPaterno = p_apellidoPaterno,
         apellidoMaterno = p_apellidoMaterno,
         correoElectronico = p_correoElectronico,
         fechaNacimiento = p_fechaNacimiento
-    WHERE idUsuario = p_idUsuario;
-    COMMIT;     
+    WHERE idUsuario = p_idUsuario;     
 END;
 $$;
 
-CREATE OR REPLACE PROCEDURE sp_eliminarUsuarioAdmin(
+CREATE OR REPLACE PROCEDURE sp_eliminarUsuario(
     p_idUsuario INT
 )
 LANGUAGE plpgsql
@@ -355,7 +357,6 @@ BEGIN
     UPDATE Usuarios
     SET activo = FALSE
     WHERE idUsuario = p_idUsuario;
-    COMMIT;
 END;
 $$;
 
@@ -388,7 +389,6 @@ AS $$
 BEGIN
     INSERT INTO CategoriasTarea(nombre, descripcion, activo, fechaCreacionRegistro)
     VALUES (p_nombre, p_descripcion, TRUE, CURRENT_DATE);
-    COMMIT;
 END;
 $$;
 
@@ -403,8 +403,7 @@ BEGIN
     UPDATE CategoriasTarea
     SET nombre = p_nombre,
         descripcion = p_descripcion
-    WHERE idCategoriaTarea = p_idCategoriaTarea;
-    COMMIT;    
+    WHERE idCategoriaTarea = p_idCategoriaTarea;  
 END;
 $$;
 
@@ -417,7 +416,6 @@ BEGIN
     UPDATE categoriastarea
     SET activo = FALSE
     WHERE idCategoriaTarea = p_idCategoriaTarea;
-    COMMIT;
 END;
 $$;
 
@@ -515,7 +513,6 @@ AS $$
 BEGIN
     INSERT INTO Tareas(idCategoriaTarea, idUsuario, titulo, descripcion, fechaInicio, fechaFinalizacion, activo, fechaCreacionRegistros)
     VALUES (p_idCategoriaTarea, p_idUsuario, p_titulo, p_descripcion, p_fechaInicio, p_fechaFinalizacion, TRUE, CURRENT_DATE);
-    COMMIT;
 END;
 $$;
 
@@ -538,8 +535,7 @@ BEGIN
         descripcion = p_descripcion,
         fechaInicio = p_fechaInicio,
         fechaFinalizacion = p_fechaFinalizacion
-    WHERE idTarea = p_idTarea;
-    COMMIT;        
+    WHERE idTarea = p_idTarea;     
 END;
 $$;
 
@@ -552,7 +548,6 @@ BEGIN
     UPDATE Tareas 
     SET activo = FALSE
     WHERE idTarea = p_idTarea;
-    COMMIT;
 END;
 $$;
 
@@ -585,7 +580,6 @@ AS $$
 BEGIN
     INSERT INTO CategoriasTarea(nombre, descripcion, activo, fechaCreacionRegistro)
     VALUES (p_nombre, p_descripcion, TRUE, CURRENT_DATE);
-    COMMIT;
 END;
 $$;
 
@@ -601,7 +595,6 @@ BEGIN
     SET nombre = p_nombre,
         descripcion = p_descripcion
     WHERE idCategoriaTarea = p_idCategoriaTarea;
-    COMMIT;
 END;
 $$;
 
@@ -614,7 +607,6 @@ BEGIN
     UPDATE categoriastarea
     SET activo = FALSE
     WHERE idCategoriaTarea = p_idCategoriaTarea;
-    COMMIT;
 END;
 $$;
 
@@ -698,7 +690,6 @@ AS $$
 BEGIN
     INSERT INTO Notas(idCategoriaNota, idUsuario, titulo, descripcion, activo, fechaCreacionRegistro)
     VALUES (p_idCategoriaNota, p_idUsuario, p_titulo, p_descripcion, TRUE, CURRENT_DATE);
-    COMMIT;
 END;
 $$;
 
@@ -717,8 +708,7 @@ BEGIN
         idUsuario = p_idUsuario,
         titulo = p_titulo,
         descripcion = p_descripcion
-    WHERE idNota = p_idNota;
-    COMMIT;    
+    WHERE idNota = p_idNota;  
 END;
 $$;
 
@@ -731,6 +721,5 @@ BEGIN
     UPDATE Notas
     SET activo = FALSE
     WHERE idNota = p_idNota;
-    COMMIT;
 END;
 $$;
