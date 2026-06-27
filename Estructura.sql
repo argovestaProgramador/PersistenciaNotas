@@ -186,6 +186,7 @@ $$;
 
 -- Procedimientos para Usuario
 
+--me toca replantear esto
 CREATE OR REPLACE FUNCTION fn_login(
     p_correoElectronico VARCHAR(200),
     p_contraseñaHash TEXT
@@ -511,7 +512,7 @@ CREATE OR REPLACE PROCEDURE sp_crearTarea(
 LANGUAGE plpgsql
 AS $$
 BEGIN
-    INSERT INTO Tareas(idCategoriaTarea, idUsuario, titulo, descripcion, fechaInicio, fechaFinalizacion, activo, fechaCreacionRegistros)
+    INSERT INTO Tareas(idCategoriaTarea, idUsuario, titulo, descripcion, fechaInicio, fechaFinalizacion, activo, fechaCreacionRegistro)
     VALUES (p_idCategoriaTarea, p_idUsuario, p_titulo, p_descripcion, p_fechaInicio, p_fechaFinalizacion, TRUE, CURRENT_DATE);
 END;
 $$;
@@ -551,11 +552,11 @@ BEGIN
 END;
 $$;
 
--- Procedimientos de Categorias Notas
+-- Procedimientos de Notas
 
-CREATE OR REPLACE FUNCTION fn_listarcategoriastarea()
+CREATE OR REPLACE FUNCTION fn_listarcategoriasNota()
 RETURNS TABLE (
-    idCategoriaTarea INT,
+    idCategoriaNota INT,
     nombre VARCHAR(50),
     descripcion VARCHAR(250)
 )
@@ -563,50 +564,50 @@ LANGUAGE plpgsql
 AS $$
 BEGIN
     RETURN QUERY
-    SELECT cate.idCategoriaTarea AS "idCategoriaTarea",
-           cate.nombre AS "nombre",
-           cate.descripcion AS "descripcion"
-    FROM CategoriasTarea AS cate
+    SELECT cat.idCategoriaNota AS "idCategoriaNota",
+           cat.nombre AS "nombre",
+           cat.descripcion AS "descripcion"
+    FROM CategoriasNota AS cat 
     WHERE activo = TRUE;
 END;
 $$;
 
-CREATE OR REPLACE PROCEDURE sp_crearCategoriaTarea(
+CREATE OR REPLACE PROCEDURE sp_crearCategoriaNota(
     p_nombre VARCHAR(50),
     p_descripcion VARCHAR(250)
 )
 LANGUAGE plpgsql
 AS $$
 BEGIN
-    INSERT INTO CategoriasTarea(nombre, descripcion, activo, fechaCreacionRegistro)
+    INSERT INTO CategoriasNota(nombre, descripcion, activo, fechaCreacionRegistro)
     VALUES (p_nombre, p_descripcion, TRUE, CURRENT_DATE);
 END;
 $$;
 
-CREATE OR REPLACE PROCEDURE sp_actualizarCategoriaTarea(
+CREATE OR REPLACE PROCEDURE sp_actualizarCategoriaNota(
     p_nombre VARCHAR(50),
     p_descripcion VARCHAR(250),
-    p_idCategoriaTarea INT
+    p_idCategoriaNota INT
 )
 LANGUAGE plpgsql
 AS $$
 BEGIN
-    UPDATE categoriastarea
+    UPDATE CategoriasNota
     SET nombre = p_nombre,
         descripcion = p_descripcion
-    WHERE idCategoriaTarea = p_idCategoriaTarea;
+    WHERE idCategoriaNota = p_idCategoriaNota;
 END;
 $$;
 
-CREATE OR REPLACE PROCEDURE sp_eliminarCategoriaTarea(
-    p_idCategoriaTarea INT
+CREATE OR REPLACE PROCEDURE sp_eliminarCategoriaNota(
+    p_idCategoriaNota INT
 )
 LANGUAGE plpgsql
 AS $$
 BEGIN
-    UPDATE categoriastarea
+    UPDATE CategoriasNota
     SET activo = FALSE
-    WHERE idCategoriaTarea = p_idCategoriaTarea;
+    WHERE idCategoriaNota = p_idCategoriaNota;
 END;
 $$;
 
